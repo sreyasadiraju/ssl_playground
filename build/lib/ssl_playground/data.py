@@ -8,26 +8,21 @@ from tqdm import tqdm
 import imageio
 import numpy as np
 import matplotlib.pyplot as plt
-from torch import zeros_like
-from torchvision.transforms.v2 import ToTensor, Pad, Compose, RandomAffine
-from torchvision.transforms.v2.functional import affine
+from torchvision.transforms import ToTensor, Pad, Compose
 from torchvision.datasets import MNIST
 from torch.utils.data import DataLoader
 
 class MNIST64:
 
     transform = Compose([ToTensor(), Pad(18)])
-    rotation_range = [-180, 180]
-    translate_range = [0.4, 0.4]
-    scale_range = [0.5, 2.0]
 
     def __init__(self, mnist_path):
         self.data_dir = mnist_path
         return
     
     def make_data(self):
-        self.train_data = MNIST(self.data_dir, train=True, transform=MNIST64.transform, download=True)
-        self.test_data = MNIST(self.data_dir, train=False, transform=MNIST64.transform, download=True)
+        self.train_data = MNIST(self.data_dir, train=True, transform=self.transform, download=True)
+        self.test_data = MNIST(self.data_dir, train=False, transform=self.transform, download=True)
 
     def make_loaders(self, train_data, test_data, batch_size):
         self.train_data_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
@@ -37,40 +32,9 @@ class MNIST64:
         self.make_data()
         self.make_loaders(self.train_data, self.test_data, batch_size)
 
-    def transform_images_uniform(images, angle, translate, scale):
-        return affine(images, angle, translate, scale, 0)
-    
-    def transform_images(images, angles, translates, scales):
-        assert images.size(0) == len(angles) == len(translates[0]) == len(scales), "Transform parameters must match batch size!"
-        output = zeros_like(images)
-        for i in range(images.size(0)):
-            output[i] = affine(images[i], angles[i], [translates[0][i], translates[1][i]], scales[i], 0)
-        return output
-    
-    def random_transform_images_uniform(images):
-        angle, translate, scale, _ = RandomAffine.get_params(degrees=MNIST64.rotation_range, translate=MNIST64.translate_range, scale_ranges=MNIST64.scale_range, shears=[0.0, 0.0], img_size=[64, 64])
-        return MNIST64.transform_images_uniform(images, angle, translate, scale), (angle, translate, scale)
-    
-    def random_transform_images(images):
-        angles = np.random.uniform(MNIST64.rotation_range[0], MNIST64.rotation_range[1], size=images.size(0))
-        translates = np.stack([np.random.uniform(-64*MNIST64.translate_range[0], 64*MNIST64.translate_range[0], size=images.size(0)), 
-                              np.random.uniform(-64*MNIST64.translate_range[1], 64*MNIST64.translate_range[1], size=images.size(0))], axis=0)
-        scales = np.random.uniform(MNIST64.scale_range[0], MNIST64.scale_range[1], size=images.size(0)) #TODO: Make this logarithmic!
-        return MNIST64.transform_images(images, angles.tolist(), translates.tolist(), scales.tolist()), (angles, translates, scales)
-    
-    def random_transform_pairs_uniform(images):
-        images_1, (angle_1, translate_1, scale_1) = MNIST64.random_transform_images_uniform(images)
-        images_2, (angle_2, translate_2, scale_2) = MNIST64.random_transform_images_uniform(images)
-        return images_1, images_2, (angle_2 - angle_1, (translate_2[0] - translate_1[0], translate_2[1] - translate_1[1]), scale_2 - scale_1)
-    
-    def random_transform_pairs(images):
-        images_1, params_1 = MNIST64.random_transform_images(images)
-        images_2, params_2 = MNIST64.random_transform_images(images)
-        return images_1, images_2, (params_2[0] - params_1[0], params_2[1] - params_1[1], params_2[2] - params_1[2])
-
     def show_image(img, label=None):
         if label is not None:
-            print(label)
+            print("Moo", label)
         plt.matshow(img, cmap="gray")
         plt.show()
 
