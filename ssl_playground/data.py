@@ -8,15 +8,17 @@ from tqdm import tqdm
 import imageio
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 from torch import zeros_like
-from torchvision.transforms.v2 import ToTensor, Pad, Compose, RandomAffine
-from torchvision.transforms.v2.functional import affine
+from torchvision.transforms import ToTensor, Pad, Compose, RandomAffine, Lambda
+from torchvision.transforms.functional import affine
 from torchvision.datasets import MNIST
 from torch.utils.data import DataLoader
 
 class MNIST64:
 
     transform = Compose([ToTensor(), Pad(18)])
+    one_hot_transform = Lambda(lambda y: torch.zeros(10, dtype=torch.float).scatter_(0, torch.tensor(y), value=1))
     rotation_range = [-180, 180]
     translate_range = [0.4, 0.4]
     scale_range = [0.5, 2.0]
@@ -25,17 +27,25 @@ class MNIST64:
         self.data_dir = mnist_path
         return
     
-    def make_data(self):
-        self.train_data = MNIST(self.data_dir, train=True, transform=MNIST64.transform, download=True)
-        self.test_data = MNIST(self.data_dir, train=False, transform=MNIST64.transform, download=True)
+    def make_data(self, one_hot_labels=False):
+        if one_hot_labels:
+            self.train_data = MNIST(self.data_dir, train=True, transform=MNIST64.transform, 
+                                    target_transform=MNIST64.one_hot_transform, 
+                                    download=True)
+            self.test_data = MNIST(self.data_dir, train=False, transform=MNIST64.transform, 
+                                   target_transform=MNIST64.one_hot_transform, 
+                                   download=True)
+        else:
+            self.train_data = MNIST(self.data_dir, train=True, transform=MNIST64.transform, download=True)
+            self.test_data = MNIST(self.data_dir, train=False, transform=MNIST64.transform, download=True)
 
-    def make_loaders(self, train_data, test_data, batch_size):
-        self.train_data_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-        self.test_data_loader = DataLoader(test_data, batch_size=batch_size)
+    def make_loaders(self, batch_size):
+        self.train_data_loader = DataLoader(self.train_data, batch_size=batch_size, shuffle=True)
+        self.test_data_loader = DataLoader(self.test_data, batch_size=batch_size)
 
-    def make_data_and_loaders(self, batch_size):
-        self.make_data()
-        self.make_loaders(self.train_data, self.test_data, batch_size)
+    def make_data_and_loaders(self, batch_size, one_hot_labels=False):
+        self.make_data(one_hot_labels=one_hot_labels)
+        self.make_loaders(batch_size)
 
     def transform_images_uniform(images, angle, translate, scale):
         return affine(images, angle, translate, scale, 0)
